@@ -1,6 +1,7 @@
 import { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Video } from "../db/models/video.model.js";
+import axios from "axios";
 
 const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB on bytes
 
@@ -154,6 +155,13 @@ const completeUpload = async (req, res) => {
             { uploadId },
             { status: "completed", s3Location: response.Location }
         );
+
+        // Create job for chunker service
+        const jobResponse = await axios.post("http://localhost:3002/jobs",  {
+            uploadId: uploadId,
+            key: key
+        });
+        console.log("Job created successfully" , jobResponse.data);
 
         return res.status(200).json({
             message: "Upload completed successfully",
