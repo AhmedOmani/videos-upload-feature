@@ -5,7 +5,8 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 const app = express();
 
 app.use(cors({
-    origin: "http://localhost:5173"
+    origin: true,  // Allow all origins for development
+    credentials: true
 }));
 
 app.use("/api/upload", createProxyMiddleware({
