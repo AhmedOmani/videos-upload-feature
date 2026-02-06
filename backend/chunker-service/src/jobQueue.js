@@ -1,5 +1,21 @@
 import EventEmitter from "events";
 import fs from "fs/promises";
+import { S3Client , GetObjectCommand } from "@aws-sdk/client-s3";
+import { fileURLToPath } from "url";
+import path from "path";
+import { pipeline } from "stream/promises";
+
+const s3Client = new S3Client({
+    region: process.env.AWS_REGION,
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
+});
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PROJECT_ROOT = path.resolve(__dirname, "..");
 
 class JobQueue extends EventEmitter {
     constructor(options = {}) {
@@ -18,12 +34,24 @@ class JobQueue extends EventEmitter {
             addedAt: Date.now(),
             status: "QUEUED",
         }
-
         this.queue.push(jobMetaData);
         console.log(`Job ${jobMetaData.id} added to queue. Queue length: ${this.queue.length}`);
         
         this.emit("job-added");
         return jobMetaData.id;
+    }
+
+    async downloadVideo(key) {
+        const command = new GetObjectCommand({
+            Bucket: process.env.S3_BUCKET_NAME,
+            Key: key
+        });
+        const {Body} = await s3Client.send(command);
+        const filePath = path.join(PROJECT_ROOT ,"downloads", key);
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        await pipeline(Body , fs.createWriteStream(filePath));
+        console.log(`Downloaded video ${key} to ${filePath} successfully`);
+        return filePath;
     }
 
     isEmpty() {
@@ -39,6 +67,10 @@ class JobQueue extends EventEmitter {
         return this.queue.shift();
     }
 
+    getJobById(jobId) {
+        return this.queue.find(job => job.id === jobId);
+    }
+
     async processJob(job) {
         const { id, filePath , key, attempts } = job;
         this.processing.add(id);
@@ -48,6 +80,7 @@ class JobQueue extends EventEmitter {
         console.log(`Processing job ${id} (attempt ${attempts + 1}/${this.retryAttempts})`);
         
         try {
+            const filePath = await this.downloadVideo(key);
             await this.processVideo(filePath , key);
 
             console.log(`Job ${id} completed successfully`);
@@ -107,7 +140,7 @@ class JobQueue extends EventEmitter {
 }
 
 const jobQueue = new JobQueue({
-    maxConcurrentJobs: 3,
+    maxConcurrentJobs: 1,
     retryAttempts: 3
 });
 
