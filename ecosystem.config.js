@@ -12,7 +12,11 @@ module.exports = {
         {
             name: "upload-service",
             cwd: "./backend/upload-service",
-            script: "src/s"
+            script: "src/server.js",
+            env: {
+                NODE_ENV: "production",
+                PORT: 3001
+            }
         },
         {
             name: "chunker-service",
