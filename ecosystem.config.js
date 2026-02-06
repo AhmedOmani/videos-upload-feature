@@ -3,7 +3,7 @@ module.exports = {
         {
             name: "api-gateway",
             cwd: "./backend/api-gateway",
-            script: "src/server.js",
+            script: "npm run dev",
             env: {
                 NODE_ENV: "production",
                 PORT: 3000
@@ -12,7 +12,7 @@ module.exports = {
         {
             name: "upload-service",
             cwd: "./backend/upload-service",
-            script: "src/server.js",
+            script: "npm run dev",
             env: {
                 NODE_ENV: "production",
                 PORT: 3001
@@ -21,7 +21,7 @@ module.exports = {
         {
             name: "chunker-service",
             cwd: "./backend/chunker-service",
-            script: "src/server.js",
+            script: "npm run dev",
             env: {
                 NODE_ENV: "production",
                 PORT: 3002

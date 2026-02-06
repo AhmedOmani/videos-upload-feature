@@ -1,5 +1,5 @@
 const CHUNK_SIZE = 10 * 1024 * 1024;
-const API_URL = "http://localhost:3000/api/upload";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api/upload";
 
 const getFileFingerprint = (file) => {
     return `${file.name}_${file.size}_${file.lastModified}`;
@@ -7,13 +7,13 @@ const getFileFingerprint = (file) => {
 
 const getUploadState = (fingerprint) => {
     const state = localStorage.getItem(`upload_${fingerprint}`);
-    console.log("state:" , state);
+    console.log("state:", state);
     return state ? JSON.parse(state) : null;
 }
 
-const saveUploadState = (fingerprint , uploadId) => {
-    console.log("UPLOAD ID:" , uploadId);
-    localStorage.setItem(`upload_${fingerprint}` , JSON.stringify({uploadId}));
+const saveUploadState = (fingerprint, uploadId) => {
+    console.log("UPLOAD ID:", uploadId);
+    localStorage.setItem(`upload_${fingerprint}`, JSON.stringify({ uploadId }));
 }
 
 const clearUploadState = (fingerprint) => {
@@ -56,27 +56,27 @@ const initializeUpload = async (file) => {
 const resumeUpload = async (uploadId) => {
     console.log(uploadId);
     const response = await fetch(`${API_URL}/resume/${uploadId}`, {
-            method: "GET",
-            headers: {
-                "Content-Type" : "application/json" 
-            }
-        });
+        method: "GET",
+        headers: {
+            "Content-Type": "application/json"
+        }
+    });
     const data = await response.json();
     return data;
 }
 
-const completePart = async (uploadId , partNumber , etag) => {
+const completePart = async (uploadId, partNumber, etag) => {
     const response = await fetch(`${API_URL}/part-complete`, {
-            method: "POST",
-            headers: {
-                "Content-Type" : "application/json" 
-            },
-            body: JSON.stringify({
-                uploadId,
-                partNumber,
-                etag
-            })
-        });
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            uploadId,
+            partNumber,
+            etag
+        })
+    });
     const data = await response.json();
     return data;
 }
@@ -112,29 +112,29 @@ const uploadChunk = async (presignedUrl, chunk) => {
 
 const completeUpload = async (uploadId, key, completedParts) => {
     try {
-    const response = await fetch(`${API_URL}/complete`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            uploadId,
-            key,
-            completedParts
-        })
-    });
-    const data = await response.json();
-    return data;
+        const response = await fetch(`${API_URL}/complete`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                uploadId,
+                key,
+                completedParts
+            })
+        });
+        const data = await response.json();
+        return data;
     } catch (error) {
         console.log(error);
         throw error;
     }
 }
 
-const resumeHelper = async (file , uploadId) => {
+const resumeHelper = async (file, uploadId) => {
     try {
         const resume = await resumeUpload(uploadId);
-        console.log("RESUME: " , resume);
+        console.log("RESUME: ", resume);
         //Chunk the original file ...
         const chunks = sliceFileIntoChunks(file);
         const totalParts = resume.totalParts;
@@ -142,20 +142,20 @@ const resumeHelper = async (file , uploadId) => {
             console.log("File has been changed , starting new upload...");
             return initHelper(file);
         }
-        
+
         const remainingUrls = resume.remainingUrls;
         const remainingChunks = [];
-        for (let i = 1 ; i <= totalParts ; i++) {
+        for (let i = 1; i <= totalParts; i++) {
             const url = remainingUrls.find(url => url.partNumber === i);
             if (url) {
                 remainingChunks.push(chunks[i - 1]);
             }
         }
-        
-        return {chunks : remainingChunks , key: resume.key , presignedUrls : remainingUrls};
+
+        return { chunks: remainingChunks, key: resume.key, presignedUrls: remainingUrls };
 
     } catch (error) {
-        console.log("Failed to resume uploading: " , error);
+        console.log("Failed to resume uploading: ", error);
         console.log("starting new upload...");
         clearUploadState(getFileFingerprint(file));
         return initHelper(file);
@@ -168,8 +168,8 @@ const initHelper = async (file) => {
     const key = init.key;
     const presignedUrls = init.presignedUrls;
     const chunks = sliceFileIntoChunks(file);
-    saveUploadState(getFileFingerprint(file) , uploadId);
-    return {chunks , presignedUrls , uploadId , key}
+    saveUploadState(getFileFingerprint(file), uploadId);
+    return { chunks, presignedUrls, uploadId, key }
 }
 
 const uploadVideo = async (file) => {
@@ -180,12 +180,12 @@ const uploadVideo = async (file) => {
 
     let chunks = [];
     let presignedUrls;
-    let uploadId; 
+    let uploadId;
     let key;
- 
+
     if (existingState) {
         console.log("Resume uploading...");
-        const resume = await resumeHelper(file , existingState.uploadId);
+        const resume = await resumeHelper(file, existingState.uploadId);
         // data needed
         uploadId = existingState.uploadId;
         key = resume.key;
@@ -204,7 +204,7 @@ const uploadVideo = async (file) => {
     console.log(key);
     console.log(chunks);
     console.log(presignedUrls);
-    
+
     // All-at-once pattern
     /*
     const uploadPromises = [];
@@ -277,10 +277,10 @@ const uploadVideo = async (file) => {
             try {
                 const startTime = Date.now();
                 console.log(`Uploading chunk ${chunk.partNumber}... (size: ${(chunk.size / 1024 / 1024).toFixed(2)}MB)`);
-                
+
                 const response = await uploadChunk(presignedUrl, chunk);
-                await completePart(uploadId , chunk.partNumber , response.etag);
-                
+                await completePart(uploadId, chunk.partNumber, response.etag);
+
                 const endTime = Date.now();
                 const durationSec = ((endTime - startTime) / 1000).toFixed(2);
                 const speedMbps = ((chunk.size * 8) / (endTime - startTime) / 1000).toFixed(2);
